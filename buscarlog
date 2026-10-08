@@ -1,0 +1,9 @@
+-- ¿Sigue en la lista?
+select email, status, confirmed_at, unsubscribed_at
+from public.newsletter_subscribers
+where email = 'correo@ejemplo.com';
+
+-- ¿Qué historial archivado hay?
+select final_status, created_at, confirmed_at, unsubscribed_at, archived_at
+from public.newsletter_log
+where email_hash = public.newsletter_hash('correo@ejemplo.com');
