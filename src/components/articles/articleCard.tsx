@@ -7,9 +7,9 @@ import Cover from "./cover"
 
 export default function ArticleCard({ article }: { article: ArticleSummary }) {
   return (
-    <article className="border border-border bg-card p-5 transition-colors hover:border-azul">
+    <article className="group relative border border-border bg-card p-5 transition-colors hover:border-azul has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-azul">
       {article.image && (
-        <Link to={`/articulo/${article.slug}`} tabIndex={-1} aria-hidden="true" className="mb-4 block">
+        <div className="mb-4">
           <Cover
             src={article.image}
             alt=""
@@ -17,12 +17,24 @@ export default function ArticleCard({ article }: { article: ArticleSummary }) {
             focusY={article.imageFocusY}
             variant="card"
           />
-        </Link>
+        </div>
       )}
-      <CategoryTag slug={article.category} />
+
+      {/* La etiqueta queda por encima del enlace de la tarjeta para seguir llevando a su sección */}
+      <div className="relative z-10 inline-block">
+        <CategoryTag slug={article.category} />
+      </div>
+
       <h3 className="mt-3 font-display text-2xl font-bold italic uppercase leading-tight">
-        <Link to={`/articulo/${article.slug}`}>{article.title}</Link>
+        {/* Este enlace se estira por toda la tarjeta (el ::after cubre el cuadrado entero) */}
+        <Link
+          to={`/articulo/${article.slug}`}
+          className="transition-colors after:absolute after:inset-0 after:content-[''] group-hover:text-azul focus-visible:outline-none"
+        >
+          {article.title}
+        </Link>
       </h3>
+
       {article.excerpt && (
         <p className="mt-2 font-serif text-sm text-muted-foreground">{article.excerpt}</p>
       )}

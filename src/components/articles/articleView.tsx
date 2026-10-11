@@ -25,6 +25,13 @@ export default function ArticleView({ article, all, preview = false }: Props) {
   const shownDate = article.publishedAt ?? article.createdAt
   const hasCoverCredit = Boolean(article.imageCredit?.trim() || article.imageCreditUrl)
 
+  // Publicado con fecha futura: solo lo ve un administrador
+  const isScheduled =
+    !preview &&
+    article.status === "published" &&
+    article.publishedAt !== null &&
+    new Date(article.publishedAt).getTime() > Date.now()
+
   return (
     <main className="mx-auto max-w-4xl px-4 py-10">
       {preview ? (
@@ -44,14 +51,16 @@ export default function ArticleView({ article, all, preview = false }: Props) {
       )}
 
       {/* Etiqueta flotante: no mueve el diseño del artículo */}
-      {(preview || article.status === "draft") && (
+      {(preview || article.status === "draft" || isScheduled) && (
         <p
           role="status"
           className="fixed bottom-4 left-4 z-40 max-w-xs border border-azul bg-background px-3 py-2 text-xs shadow-lg"
         >
           {preview
             ? "Vista previa: sin guardar ni publicar. Los vídeos de YouTube piden permiso antes de cargarse. Cierra esta pestaña para volver al editor."
-            : "Borrador: solo lo ves tú, porque has iniciado sesión como administrador."}
+            : isScheduled && article.publishedAt
+              ? `Programado: se publicará el ${format(new Date(article.publishedAt), "d 'de' MMMM 'a las' HH:mm", { locale: es })}. Solo lo ves tú, porque has iniciado sesión como administrador.`
+              : "Borrador: solo lo ves tú, porque has iniciado sesión como administrador."}
         </p>
       )}
 
@@ -99,7 +108,8 @@ export default function ArticleView({ article, all, preview = false }: Props) {
           {preview ? (
             <ArticleVotingPreview />
           ) : (
-            article.status === "published" && <ArticleVoting key={article.slug} slug={article.slug} />
+            article.status === "published" &&
+            !isScheduled && <ArticleVoting key={article.slug} slug={article.slug} />
           )}
 
           <div className="mt-6 border-t border-border pt-6">

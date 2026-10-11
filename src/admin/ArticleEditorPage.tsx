@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { format } from "date-fns"
+import { es } from "date-fns/locale"
 import { errorMessage, fetchAdminArticle, saveArticle, type ArticleInput } from "@/lib/api"
 import type { Category } from "@/lib/categories"
 import type { CreditPlatformChoice } from "@/lib/credit-platforms"
@@ -14,6 +16,7 @@ import BlockEditor from "./blockEditor"
 import { clean, isEmptyText, newBlock, withIds, type BlockType, type EditorBlock } from "./blocks"
 import CoverPicker from "./coverPicker"
 import CreditFields from "./creditFields"
+import FeatureCoverEditor from "./featuredCoverEdition"
 import MediaUpload from "./mediaupload"
 import NewsletterSend from "./NewsletterSend"
 import { savePreview } from "./previewStore"
@@ -27,6 +30,8 @@ interface FormState {
   category: string
   author: string
   status: "draft" | "published"
+  publishMode: "now" | "schedule"
+  scheduledAt: string // fecha y hora local, formato del selector (yyyy-MM-ddTHH:mm)
   featured: boolean
   image: string
   imageAlt: string
@@ -35,6 +40,9 @@ interface FormState {
   imageCreditPlatform: CreditPlatformChoice
   imageFocusX: number
   imageFocusY: number
+  featureImage: string // foto propia del destacado del inicio (vacío = usar la portada)
+  featureFocusX: number
+  featureFocusY: number
 }
 
 const addButtons: { type: BlockType; label: string }[] = [
@@ -46,6 +54,20 @@ const addButtons: { type: BlockType; label: string }[] = [
   { type: "upload-video", label: "+ Vídeo propio" },
 ]
 
+const toInputValue = (iso: string) => format(new Date(iso), "yyyy-MM-dd'T'HH:mm")
+
+function isFuture(iso: string | null | undefined): boolean {
+  return iso != null && new Date(iso).getTime() > Date.now()
+}
+
+// Mañana a las 9:00, hora local
+function defaultSchedule(): string {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  d.setHours(9, 0, 0, 0)
+  return toInputValue(d.toISOString())
+}
+
 // Mensaje que se pasa de una pantalla a otra cuando se crea un artículo nuevo
 function readNotice(state: unknown): string | null {
   if (typeof state === "object" && state !== null && "notice" in state && typeof state.notice === "string") {
@@ -54,7 +76,12 @@ function readNotice(state: unknown): string | null {
   return null
 }
 
-function getProblems(form: FormState, slug: string, blocks: EditorBlock[]): string[] {
+function getProblems(
+  form: FormState,
+  slug: string,
+  blocks: EditorBlock[],
+  scheduling: boolean
+): string[] {
   const problems: string[] = []
 
   if (!form.title.trim()) problems.push("Escribe un título.")
@@ -63,9 +90,21 @@ function getProblems(form: FormState, slug: string, blocks: EditorBlock[]): stri
   }
   if (!form.category) problems.push("Elige una sección.")
 
+  if (scheduling) {
+    const time = new Date(form.scheduledAt).getTime()
+    if (!form.scheduledAt || Number.isNaN(time)) {
+      problems.push("Elige la fecha y la hora de publicación.")
+    } else if (time < Date.now() + 60_000) {
+      problems.push("La fecha de publicación tiene que ser futura (al menos dentro de un minuto).")
+    }
+  }
+
   if (form.image.trim()) {
     if (!safeUrl(form.image)) problems.push("La imagen de portada no es válida: debe empezar por https://.")
     if (!form.imageAlt.trim()) problems.push("Describe la imagen de portada en su texto alternativo.")
+  }
+  if (form.featureImage.trim() && !safeExternalUrl(form.featureImage)) {
+    problems.push("La imagen del destacado no es válida: debe empezar por https://.")
   }
   if (form.imageCreditUrl.trim() && !safeExternalUrl(form.imageCreditUrl)) {
     problems.push("El enlace del crédito de la portada debe empezar por https://.")
@@ -98,6 +137,10 @@ function EditorForm({ article, categories }: { article: Article | null; categori
   const location = useLocation()
   const queryClient = useQueryClient()
 
+  // Estado guardado del artículo: borrador, programado (publicado con fecha futura) o ya online
+  const scheduledSaved = article?.status === "published" && isFuture(article.publishedAt)
+  const isLive = article?.status === "published" && !scheduledSaved
+
   const [form, setForm] = useState<FormState>(() => ({
     title: article?.title ?? "",
     slug: article?.slug ?? "",
@@ -106,6 +149,8 @@ function EditorForm({ article, categories }: { article: Article | null; categori
     category: article?.category ?? categories[0]?.slug ?? "",
     author: article?.author ?? "Redacción",
     status: article?.status ?? "draft",
+    publishMode: scheduledSaved ? "schedule" : "now",
+    scheduledAt: scheduledSaved && article?.publishedAt ? toInputValue(article.publishedAt) : "",
     featured: article?.featured ?? false,
     image: article?.image ?? "",
     imageAlt: article?.imageAlt ?? "",
@@ -114,16 +159,21 @@ function EditorForm({ article, categories }: { article: Article | null; categori
     imageCreditPlatform: article?.imageCreditPlatform ?? "auto",
     imageFocusX: article?.imageFocusX ?? 50,
     imageFocusY: article?.imageFocusY ?? 50,
+    featureImage: article?.featureImage ?? "",
+    // Si el destacado todavía no tenía encuadre propio, parte del de la portada para no cambiar nada
+    featureFocusX: article?.featureFocusX ?? article?.imageFocusX ?? 50,
+    featureFocusY: article?.featureFocusY ?? article?.imageFocusY ?? 50,
   }))
   const [blocks, setBlocks] = useState<EditorBlock[]>(() =>
-    article ? withIds(article.content) : [newBlock("richtext")]  )
+    article ? withIds(article.content) : [newBlock("richtext")]
+  )
   const [dirty, setDirty] = useState(false)
   const [problems, setProblems] = useState<string[]>([])
   const [notice, setNotice] = useState<string | null>(() => readNotice(location.state))
 
-  // Aviso por correo: marcado por defecto solo si el artículo todavía no estaba publicado.
-  // Un artículo ya publicado antes no avisa a nadie por una simple edición.
-  const [notifyOnPublish, setNotifyOnPublish] = useState(article?.status !== "published")
+  // Aviso por correo: marcado por defecto solo si el artículo todavía no estaba online.
+  // Un artículo que ya estaba publicado no avisa a nadie por una simple edición.
+  const [notifyOnPublish, setNotifyOnPublish] = useState(!isLive)
 
   const newsletterInfo = useQuery({
     queryKey: ["newsletter-info", article?.id],
@@ -132,8 +182,11 @@ function EditorForm({ article, categories }: { article: Article | null; categori
   })
   const alreadySent = Boolean(newsletterInfo.data?.sentAt)
 
-  // La URL de un artículo ya publicado no se puede cambiar (los votos dependen de ella)
-  const locked = article?.publishedAt != null
+  const scheduling = form.status === "published" && !isLive && form.publishMode === "schedule"
+
+  // La URL de un artículo ya online no se puede cambiar (los votos dependen de ella).
+  // Mientras está programado, sí.
+  const locked = article?.publishedAt != null && !isFuture(article.publishedAt)
   const finalSlug = locked && article ? article.slug : form.slugTouched ? form.slug : slugify(form.title)
 
   useEffect(() => {
@@ -196,14 +249,41 @@ function EditorForm({ article, categories }: { article: Article | null; categori
     setDirty(true)
   }
 
+  function changePublishMode(mode: "now" | "schedule") {
+    setForm((f) => ({
+      ...f,
+      publishMode: mode,
+      scheduledAt: mode === "schedule" && !f.scheduledAt ? defaultSchedule() : f.scheduledAt,
+    }))
+    setDirty(true)
+  }
+
+  // Qué fecha de publicación se manda al servidor
+  function computePublishedAt(): string | null | undefined {
+    // Borrador: si estaba programado, se quita la fecha; si no, no se toca
+    if (form.status === "draft") return scheduledSaved ? null : undefined
+    // Ya está online: se conserva su fecha
+    if (isLive) return undefined
+    // Programar: la fecha elegida
+    if (scheduling) return new Date(form.scheduledAt).toISOString()
+    // Publicar ahora: si se publicó alguna vez, se conserva la fecha original;
+    // si no, null y el servidor pone la hora actual
+    return article?.publishedAt && !scheduledSaved ? undefined : null
+  }
+
   const save = useMutation({
     mutationFn: async (input: ArticleInput) => {
       const saved = await saveArticle(input, article?.id)
 
-      // Al guardar como publicado por primera vez, se avisa a los suscriptores.
-      // El servidor garantiza que cada artículo se avisa una sola vez.
       let result: string | null = null
-      if (input.status === "published" && notifyOnPublish && !alreadySent) {
+      if (scheduling && input.publishedAt) {
+        // Un artículo programado no avisa a nadie todavía: el aviso se envía cuando ya esté online
+        result = `Guardado. Se publicará el ${format(new Date(input.publishedAt), "d 'de' MMMM 'a las' HH:mm", {
+          locale: es,
+        })}. El aviso por correo se podrá enviar desde el recuadro «Newsletter» cuando salga.`
+      } else if (input.status === "published" && notifyOnPublish && !alreadySent) {
+        // Al publicar por primera vez, se avisa a los suscriptores.
+        // El servidor garantiza que cada artículo se avisa una sola vez.
         try {
           const r = await sendArticleNewsletter(saved.id)
           result =
@@ -238,7 +318,7 @@ function EditorForm({ article, categories }: { article: Article | null; categori
     e.preventDefault()
 
     const content = blocks.filter((b) => !isEmptyText(b))
-    const found = getProblems(form, finalSlug, content)
+    const found = getProblems(form, finalSlug, content, scheduling)
     setProblems(found)
     if (found.length > 0) return
 
@@ -250,6 +330,7 @@ function EditorForm({ article, categories }: { article: Article | null; categori
       category: form.category,
       author: form.author.trim() || "Redacción",
       status: form.status,
+      publishedAt: computePublishedAt(),
       featured: form.featured,
       image: form.image.trim() || null,
       imageAlt: form.imageAlt.trim(),
@@ -258,6 +339,9 @@ function EditorForm({ article, categories }: { article: Article | null; categori
       imageCreditPlatform: form.imageCreditPlatform,
       imageFocusX: form.imageFocusX,
       imageFocusY: form.imageFocusY,
+      featureImage: form.featureImage.trim() || null,
+      featureFocusX: form.featureFocusX,
+      featureFocusY: form.featureFocusY,
       content: content.map(clean),
     })
   }
@@ -290,7 +374,7 @@ function EditorForm({ article, categories }: { article: Article | null; categori
 
   const coverPreview = safeUrl(form.image)
 
-  // Imágenes ya puestas en el artículo, para elegir una como portada
+  // Imágenes ya puestas en el artículo, para elegir una como portada o como foto del destacado
   const imageChoices: { src: string; alt: string }[] = []
   for (const b of blocks) {
     if (b.type === "image" && safeUrl(b.src)) imageChoices.push({ src: b.src, alt: b.alt })
@@ -308,6 +392,14 @@ function EditorForm({ article, categories }: { article: Article | null; categori
           Volver a la lista
         </Link>
       </div>
+
+      {scheduledSaved && article?.publishedAt && (
+        <p role="status" className="border border-azul bg-azul/10 px-4 py-2 text-sm">
+          <strong>Programado:</strong> se publicará el{" "}
+          {format(new Date(article.publishedAt), "d 'de' MMMM 'de' yyyy 'a las' HH:mm", { locale: es })}.
+          Hasta entonces, los lectores no lo ven.
+        </p>
+      )}
 
       <div>
         <label htmlFor="title" className="mb-1 block text-sm font-bold">
@@ -378,7 +470,7 @@ function EditorForm({ article, categories }: { article: Article | null; categori
           <p className="mt-1 text-xs text-muted-foreground">
             {locked
               ? "Este artículo ya se publicó: su dirección no se puede cambiar."
-              : `Será /articulo/${finalSlug || "…"}. Después de publicar no se podrá cambiar.`}
+              : `Será /articulo/${finalSlug || "…"}. Cuando se publique, no se podrá cambiar.`}
           </p>
         </div>
 
@@ -513,6 +605,26 @@ function EditorForm({ article, categories }: { article: Article | null; categori
         )}
       </fieldset>
 
+      <FeatureCoverEditor
+         coverImage={form.image}
+        isFeatured={form.featured}
+        articleImages={imageChoices}
+        value={{
+          image: form.featureImage,
+          focusX: form.featureFocusX,
+          focusY: form.featureFocusY,
+        }}
+        onChange={(v) => {
+          setForm((f) => ({
+            ...f,
+            featureImage: v.image,
+            featureFocusX: v.focusX,
+            featureFocusY: v.focusY,
+          }))
+          setDirty(true)
+        }}
+      />
+
       <section aria-label="Contenido">
         <h2 className="font-display text-2xl font-bold italic uppercase">Contenido</h2>
 
@@ -549,7 +661,8 @@ function EditorForm({ article, categories }: { article: Article | null; categori
       {article && (
         <NewsletterSend
           articleId={article.id}
-          published={article.status === "published"}
+          published={isLive}
+          scheduledFor={scheduledSaved ? article.publishedAt : null}
           dirty={dirty}
         />
       )}
@@ -587,7 +700,35 @@ function EditorForm({ article, categories }: { article: Article | null; categori
             <option value="published">Publicado</option>
           </select>
 
-          {form.status === "published" && !alreadySent && (
+          {form.status === "published" && !isLive && (
+            <>
+              <label htmlFor="publish-mode" className="text-sm font-bold">
+                Cuándo
+              </label>
+              <select
+                id="publish-mode"
+                value={form.publishMode}
+                onChange={(e) => changePublishMode(e.target.value === "schedule" ? "schedule" : "now")}
+                className={`${inputClass} w-auto`}
+              >
+                <option value="now">Publicar ahora</option>
+                <option value="schedule">Programar…</option>
+              </select>
+
+              {form.publishMode === "schedule" && (
+                <input
+                  type="datetime-local"
+                  aria-label="Fecha y hora de publicación"
+                  value={form.scheduledAt}
+                  min={toInputValue(new Date().toISOString())}
+                  onChange={(e) => setField("scheduledAt", e.target.value)}
+                  className={`${inputClass} w-auto`}
+                />
+              )}
+            </>
+          )}
+
+          {form.status === "published" && !alreadySent && !scheduling && (
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -600,7 +741,7 @@ function EditorForm({ article, categories }: { article: Article | null; categori
           )}
 
           <button type="submit" disabled={save.isPending} className={primaryButtonClass}>
-            {save.isPending ? "Guardando…" : "Guardar"}
+            {save.isPending ? "Guardando…" : scheduling ? "Programar" : "Guardar"}
           </button>
 
           <button type="button" onClick={openPreview} className={buttonClass}>
@@ -622,6 +763,12 @@ function EditorForm({ article, categories }: { article: Article | null; categori
             {save.isSuccess && !dirty ? "Guardado ✓" : dirty ? "Cambios sin guardar" : ""}
           </span>
         </div>
+
+        {scheduling && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Hora de tu ordenador. El aviso por correo no sale hasta que el artículo esté online.
+          </p>
+        )}
       </div>
     </form>
   )

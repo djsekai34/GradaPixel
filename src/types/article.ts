@@ -36,6 +36,9 @@ export interface ArticleSummary {
   imageCreditPlatform: CreditPlatformChoice
   imageFocusX: number // 0 a 100: qué parte de la portada se ve al recortarla
   imageFocusY: number
+  featureImage: string | null // foto propia del bloque destacado del inicio (null = usa la portada)
+  featureFocusX: number | null // encuadre propio en el destacado (null = el mismo que la portada)
+  featureFocusY: number | null
 }
 
 export interface Article extends ArticleSummary {

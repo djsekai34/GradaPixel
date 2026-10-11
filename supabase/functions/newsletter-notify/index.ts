@@ -66,6 +66,7 @@ Deno.serve(async (req) => {
       .update({ newsletter_sent_at: claimedAt })
       .eq("id", articleId)
       .eq("status", "published")
+      .lte("published_at", claimedAt)
       .is("newsletter_sent_at", null)
       .select("id,slug,title,excerpt,image_url,category_slug")
       .maybeSingle()

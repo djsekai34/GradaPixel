@@ -95,6 +95,10 @@ export function readPreview(): Article | null {
       imageCreditPlatform: isPlatformChoice(o.imageCreditPlatform) ? o.imageCreditPlatform : "auto",
       imageFocusX: percent(o.focusX),
       imageFocusY: percent(o.focusY),
+      // La vista previa enseña el artículo, no el bloque destacado del inicio
+      featureImage: null,
+      featureFocusX: null,
+      featureFocusY: null,
       content: parseContent(o.content),
     }
   } catch {

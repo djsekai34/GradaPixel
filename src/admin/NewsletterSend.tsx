@@ -6,11 +6,12 @@ import { buttonClass } from "./ui"
 
 interface Props {
   articleId: string
-  published: boolean // si el artículo ya está publicado (guardado)
+  published: boolean // si el artículo está ya online (publicado y con la fecha cumplida)
+  scheduledFor?: string | null // si está programado, su fecha
   dirty: boolean // si hay cambios sin guardar
 }
 
-export default function NewsletterSend({ articleId, published, dirty }: Props) {
+export default function NewsletterSend({ articleId, published, scheduledFor, dirty }: Props) {
   const queryClient = useQueryClient()
   const info = useQuery({
     queryKey: ["newsletter-info", articleId],
@@ -47,6 +48,12 @@ export default function NewsletterSend({ articleId, published, dirty }: Props) {
             <p className="text-sm">
               Aviso enviado el{" "}
               {format(new Date(data.sentAt), "d 'de' MMMM 'de' yyyy, HH:mm", { locale: es })}.
+            </p>
+          ) : scheduledFor ? (
+            <p className="text-sm text-muted-foreground">
+              Este artículo se publicará el{" "}
+              {format(new Date(scheduledFor), "d 'de' MMMM 'a las' HH:mm", { locale: es })}. El aviso
+              se podrá enviar desde aquí cuando esté online.
             </p>
           ) : !published ? (
             <p className="text-sm text-muted-foreground">

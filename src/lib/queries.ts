@@ -14,7 +14,7 @@ export function useArticles() {
   return useQuery({
     queryKey: ["articles"],
     queryFn: fetchPublishedArticles,
-    staleTime: 60_000,
+        staleTime: 15_000,
   })
 }
 

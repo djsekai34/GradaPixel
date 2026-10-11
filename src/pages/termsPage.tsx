@@ -12,8 +12,7 @@ export default function TermsPage() {
       </p>
       <ul>
         <li>Titular: {site.owner}</li>
-        <li>NIF/CIF: {site.taxId}</li>
-        <li>Domicilio: {site.address}</li>
+{site.taxId && <li>NIF/CIF: {site.taxId}</li>}        <li>Domicilio: {site.address}</li>
         <li>
           Correo electrónico: <a href={`mailto:${site.email}`}>{site.email}</a>
         </li>

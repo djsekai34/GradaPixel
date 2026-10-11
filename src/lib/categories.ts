@@ -12,7 +12,7 @@ export const categoryColors: Record<CategoryColor, string> = {
   rojo: "bg-cat-lucha text-white",
   verde: "bg-cat-futbol text-white",
   naranja: "bg-cat-baloncesto text-white",
-  amarillo: "bg-cat-motor text-black",
+  amarillo: "bg-cat-motor text-white",
   morado: "bg-cat-videojuegos text-white",
   azul: "bg-azul text-white",
   marino: "bg-brand text-white",

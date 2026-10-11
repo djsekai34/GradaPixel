@@ -86,7 +86,7 @@ export async function deleteCategory(slug: string): Promise<void> {
 // ---------- Artículos ----------
 
 const SUMMARY_COLUMNS =
-  "id,slug,title,excerpt,category_slug,author,status,featured,published_at,image_url,image_alt,image_credit,image_credit_url,image_credit_platform,image_focus_x,image_focus_y,created_at"
+  "id,slug,title,excerpt,category_slug,author,status,featured,published_at,image_url,image_alt,image_credit,image_credit_url,image_credit_platform,image_focus_x,image_focus_y,feature_image_url,feature_focus_x,feature_focus_y,created_at"
 
 interface SummaryRow {
   id: string
@@ -105,6 +105,9 @@ interface SummaryRow {
   image_credit_platform: string
   image_focus_x: number
   image_focus_y: number
+  feature_image_url: string | null
+  feature_focus_x: number | null
+  feature_focus_y: number | null
   created_at: string
 }
 
@@ -184,6 +187,10 @@ function clampPercent(v: unknown): number {
   return Number.isFinite(n) ? Math.min(100, Math.max(0, Math.round(n))) : 50
 }
 
+function optionalPercent(v: unknown): number | null {
+  return v === null || v === undefined ? null : clampPercent(v)
+}
+
 function toSummary(r: SummaryRow): ArticleSummary {
   return {
     id: r.id,
@@ -203,6 +210,9 @@ function toSummary(r: SummaryRow): ArticleSummary {
     imageCreditPlatform: isPlatformChoice(r.image_credit_platform) ? r.image_credit_platform : "auto",
     imageFocusX: clampPercent(r.image_focus_x),
     imageFocusY: clampPercent(r.image_focus_y),
+    featureImage: safeExternalUrl(r.feature_image_url),
+    featureFocusX: optionalPercent(r.feature_focus_x),
+    featureFocusY: optionalPercent(r.feature_focus_y),
   }
 }
 
@@ -210,18 +220,19 @@ function toArticle(r: ArticleRow): Article {
   return { ...toSummary(r), content: parseContent(r.content) }
 }
 
-// Web pública: solo artículos publicados
+// Web pública: solo artículos publicados cuya fecha ya ha llegado
 export async function fetchPublishedArticles(): Promise<ArticleSummary[]> {
   const { data, error } = await db()
     .from("articles")
     .select(SUMMARY_COLUMNS)
     .eq("status", "published")
+    .lte("published_at", new Date().toISOString())
     .order("published_at", { ascending: false })
   if (error) throw error
   return rows<SummaryRow>(data).map(toSummary)
 }
 
-// Un artículo por URL. Los borradores solo los devuelve la base de datos si eres admin
+// Un artículo por URL. Los borradores y programados solo los devuelve la base de datos si eres admin
 export async function fetchArticleBySlug(slug: string): Promise<Article | null> {
   const { data, error } = await db().from("articles").select("*").eq("slug", slug).maybeSingle()
   if (error) throw error
@@ -255,6 +266,24 @@ export async function deleteArticle(id: string): Promise<void> {
   if (error) throw error
 }
 
+// Publica ahora un artículo programado o en borrador: el servidor pone la hora actual
+export async function publishNow(id: string): Promise<void> {
+  const { error } = await db()
+    .from("articles")
+    .update({ status: "published", published_at: null })
+    .eq("id", id)
+  if (error) throw error
+}
+
+// Quita la programación: el artículo vuelve a borrador
+export async function unscheduleArticle(id: string): Promise<void> {
+  const { error } = await db()
+    .from("articles")
+    .update({ status: "draft", published_at: null })
+    .eq("id", id)
+  if (error) throw error
+}
+
 // ---------- Editor de artículos ----------
 
 export interface ArticleInput {
@@ -264,6 +293,8 @@ export interface ArticleInput {
   category: string
   author: string
   status: "draft" | "published"
+  // undefined = no tocar la fecha · null = que el servidor ponga la hora actual (o quite la programación) · texto = fecha concreta
+  publishedAt?: string | null
   featured: boolean
   image: string | null
   imageAlt: string
@@ -272,6 +303,9 @@ export interface ArticleInput {
   imageCreditPlatform: CreditPlatformChoice
   imageFocusX: number
   imageFocusY: number
+  featureImage: string | null
+  featureFocusX: number
+  featureFocusY: number
   content: ContentBlock[]
 }
 
@@ -292,6 +326,7 @@ export async function saveArticle(
     category_slug: input.category,
     author: input.author,
     status: input.status,
+    ...(input.publishedAt !== undefined ? { published_at: input.publishedAt } : {}),
     featured: input.featured,
     image_url: input.image,
     image_alt: input.imageAlt,
@@ -300,6 +335,9 @@ export async function saveArticle(
     image_credit_platform: input.imageCreditPlatform,
     image_focus_x: clampPercent(input.imageFocusX),
     image_focus_y: clampPercent(input.imageFocusY),
+    feature_image_url: input.featureImage ? safeExternalUrl(input.featureImage) : null,
+    feature_focus_x: clampPercent(input.featureFocusX),
+    feature_focus_y: clampPercent(input.featureFocusY),
     content: input.content,
   }
 
@@ -320,8 +358,11 @@ export async function saveArticle(
     saved = data as { id: string; slug: string }
   }
 
-  // Solo puede haber un artículo destacado
-  if (input.featured) {
+  // Solo puede haber un artículo destacado. Si el artículo está programado, el actual
+  // sigue destacado hasta que salga el nuevo (la portada enseña el más reciente).
+  const goesLiveLater =
+    typeof input.publishedAt === "string" && Date.parse(input.publishedAt) > Date.now()
+  if (input.featured && !goesLiveLater) {
     const { error } = await db()
       .from("articles")
       .update({ featured: false })
