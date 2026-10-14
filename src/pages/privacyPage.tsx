@@ -75,8 +75,7 @@ export default function PrivacyPage() {
         <li>Supabase, que aloja la base de datos de votos y actúa como encargado del tratamiento.</li>
         <li>{site.hosting}, que aloja la web.</li>
         <li>Google (YouTube), solo si pulsas «Cargar vídeo». Consulta la <a href="/cookies">política de cookies</a>.</li>
-                <li>Resend, que envía los correos, y Supabase, que guarda la lista de suscriptores, como encargados del tratamiento.</li>
-      </ul>
+        <li>Google (Gmail), que envía los correos, y Supabase, que guarda la lista de suscriptores, como encargados del tratamiento.</li>      </ul>
       <p>No vendemos tus datos ni los usamos para publicidad ni para elaborar perfiles.</p>
 
       <h2>Tus derechos</h2>

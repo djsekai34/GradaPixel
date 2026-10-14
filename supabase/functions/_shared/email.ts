@@ -19,50 +19,57 @@ export function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;")
 }
 
-async function resend(
-  path: string,
-  payload: unknown,
-  idempotencyKey?: string,
-  attempt = 0
-): Promise<void> {
-  const res = await fetch(`https://api.resend.com${path}`, {
+// Envía un correo a través del intermediario de la web (que lo manda con Gmail)
+async function relay(m: OutgoingEmail): Promise<void> {
+  if (!env.relaySecret || !env.siteUrl) {
+    throw new Error("Falta RELAY_SECRET o SITE_URL en los secretos de Supabase")
+  }
+
+  const res = await fetch(env.relayUrl, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.resendKey}`,
-      "Content-Type": "application/json",
-      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
-    },
-    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json", "x-relay-secret": env.relaySecret },
+    body: JSON.stringify({
+      to: m.to,
+      subject: m.subject,
+      html: m.html,
+      text: m.text,
+      headers: m.headers,
+    }),
   })
 
-  // Demasiadas peticiones seguidas: esperamos y reintentamos
-  if (res.status === 429 && attempt < 2) {
-    await sleep(1500 * (attempt + 1))
-    return resend(path, payload, idempotencyKey, attempt + 1)
-  }
   if (!res.ok) {
     const detail = await res.text().catch(() => "")
-    throw new Error(`Resend ${res.status}: ${detail.slice(0, 300)}`)
-  }
-}
-
-function toPayload(m: OutgoingEmail) {
-  return {
-    from: env.from,
-    to: [m.to],
-    subject: m.subject,
-    html: m.html,
-    text: m.text,
-    ...(env.replyTo ? { reply_to: env.replyTo } : {}),
-    ...(m.headers ? { headers: m.headers } : {}),
+    throw new Error(`Envío ${res.status}: ${detail.slice(0, 300)}`)
   }
 }
 
 export async function sendEmail(m: OutgoingEmail): Promise<void> {
-  await resend("/emails", toPayload(m))
+  await relay(m)
 }
 
-// Hasta 100 correos por petición
-export async function sendBatch(list: OutgoingEmail[], idempotencyKey: string): Promise<void> {
-  await resend("/emails/batch", list.map(toPayload), idempotencyKey)
+// Envía varios correos a la vez (de pocos en pocos) y cuenta cuántos salieron
+export async function sendMany(
+  list: OutgoingEmail[],
+  concurrency = 6
+): Promise<{ sent: number; failed: number }> {
+  let sent = 0
+  let failed = 0
+  let next = 0
+
+  async function worker() {
+    while (true) {
+      const i = next++
+      if (i >= list.length) return
+      try {
+        await relay(list[i])
+        sent++
+      } catch (e) {
+        failed++
+        console.error("Envío fallido", e)
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, list.length) }, worker))
+  return { sent, failed }
 }

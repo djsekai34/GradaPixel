@@ -1,8 +1,11 @@
 import { createClient } from "jsr:@supabase/supabase-js@2"
 import { env } from "../_shared/config.ts"
-import { sendBatch, sleep, type OutgoingEmail } from "../_shared/email.ts"
+import { sendMany, type OutgoingEmail } from "../_shared/email.ts"
 import { corsFor, json, UUID } from "../_shared/http.ts"
 import { articleEmail } from "../_shared/templates.ts"
+
+// Con Gmail y el límite de tiempo de la función, más de esto no cabe en un solo envío
+const MAX_RECIPIENTS = 250
 
 const admin = createClient(env.supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "", {
   auth: { persistSession: false },
@@ -80,6 +83,16 @@ Deno.serve(async (req) => {
       await releaseClaim(article.id)
       return json({ ok: true, sent: 0, failed: 0 }, 200, cors)
     }
+    if (subscribers.length > MAX_RECIPIENTS) {
+      await releaseClaim(article.id)
+      return json(
+        {
+          error: `Hay ${subscribers.length} suscriptores y con el envío por Gmail el máximo es ${MAX_RECIPIENTS} de una vez. Hace falta un dominio propio para seguir creciendo.`,
+        },
+        413,
+        cors
+      )
+    }
 
     const { data: categoryRow } = await admin
       .from("categories")
@@ -117,22 +130,7 @@ Deno.serve(async (req) => {
       }
     })
 
-    // La clave incluye el momento de la reserva: un reintento posterior no choca con uno anterior
-    const keyBase = `article-${article.id}-${claimedAt}`
-
-    let sent = 0
-    let failed = 0
-    for (let i = 0; i < messages.length; i += 100) {
-      const chunk = messages.slice(i, i + 100)
-      try {
-        await sendBatch(chunk, `${keyBase}-chunk-${i / 100}`)
-        sent += chunk.length
-      } catch (e) {
-        console.error("Lote fallido", e)
-        failed += chunk.length
-      }
-      if (i + 100 < messages.length) await sleep(700)
-    }
+    const { sent, failed } = await sendMany(messages)
 
     // Si no salió nada, se libera para poder reintentarlo
     if (sent === 0) {

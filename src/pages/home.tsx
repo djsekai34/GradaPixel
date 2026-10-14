@@ -77,7 +77,7 @@ export default function Home() {
       {rest.length > 0 && (
         <section aria-label="Últimas noticias" className="mt-10">
           <h2 className="font-display text-3xl font-bold italic uppercase">
-            Última <span className="text-azul">hora</span>
+            Otras <span className="text-azul">noticias</span>
           </h2>
           <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {rest.map((a) => (
