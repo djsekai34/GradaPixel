@@ -26,7 +26,7 @@ function Settings() {
             <label htmlFor="cookies-necessary" className="text-sm">
               <span className="block font-bold">Necesarias (siempre activas)</span>
               <span className="text-muted-foreground">
-                Guardan tu modo claro u oscuro, tus votos, que hayas cerrado el aviso de la newsletter y esta misma elección. La web no
+                Guardan tu modo claro u oscuro, tus tus votos, tus ajustes de accesibilidad, que hayas cerrado el aviso de la newsletter y esta misma elección. La web no
                 funciona bien sin ellas y no recogen datos para publicidad.
               </span>
             </label>

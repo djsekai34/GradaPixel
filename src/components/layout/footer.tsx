@@ -8,6 +8,7 @@ import { site } from "@/lib/site"
 import { socialUrls } from "@/lib/social"
 import { safeExternalUrl } from "@/lib/url"
 import Logo from "./logo"
+import XFollowButton from "./XFollowButton"
 
 const linkClass = "text-sm text-muted-foreground transition-colors hover:text-azul"
 
@@ -33,7 +34,11 @@ export default function Footer() {
   const { data } = useCategories()
   const categories = data ?? []
 
+  // X tiene su propio botón grande; el resto de redes, iconos pequeños
+  const xUrl = safeExternalUrl(socialUrls.x)
+
   const social = platformOrder.flatMap((p) => {
+    if (p === "x" && xUrl) return []
     const href = safeExternalUrl(socialUrls[p])
     return href ? [{ platform: p, href }] : []
   })
@@ -87,6 +92,12 @@ export default function Footer() {
           <p className="mt-3 max-w-sm text-sm text-muted-foreground">
             Tu periódico digital de videojuegos y deporte.
           </p>
+
+          {xUrl && (
+            <div className="mt-4">
+              <XFollowButton href={xUrl} />
+            </div>
+          )}
 
           {social.length > 0 && (
             <ul aria-label="Redes sociales" className="mt-4 flex flex-wrap gap-2">

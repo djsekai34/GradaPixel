@@ -146,3 +146,90 @@
   animation: none;
   mix-blend-mode: normal;
 }
+
+/* ===== Accesibilidad: lo activa cada visitante desde el botón flotante ===== */
+
+/* Fuente más legible: sin cursivas ni mayúsculas continuas en los titulares */
+html[data-font="legible"] body,
+html[data-font="legible"] body *:not(em):not(i) {
+  font-family: "Atkinson Hyperlegible", Verdana, system-ui, sans-serif;
+  font-style: normal;
+  text-transform: none;
+}
+
+/* Más espacio entre líneas, letras y palabras */
+html[data-spacing="wide"] body * {
+  line-height: 1.7;
+  letter-spacing: 0.04em;
+  word-spacing: 0.1em;
+}
+html[data-spacing="wide"] :is(h1, h2, h3) {
+  line-height: 1.25;
+}
+
+/* Enlaces subrayados */
+html[data-links="underline"] a {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+/* Sin animaciones */
+html[data-motion="reduced"] *,
+html[data-motion="reduced"] *::before,
+html[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Contraste alto, modo claro */
+html[data-contrast="high"] {
+  --background: #ffffff;
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --muted: #f2f2f2;
+  --muted-foreground: #000000;
+  --secondary: #f2f2f2;
+  --secondary-foreground: #000000;
+  --border: #000000;
+  --input: #000000;
+  --color-azul: #0047b3;
+}
+
+/* Contraste alto, modo oscuro */
+html.dark[data-contrast="high"] {
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #000000;
+  --card-foreground: #ffffff;
+  --popover: #000000;
+  --popover-foreground: #ffffff;
+  --muted: #1a1a1a;
+  --muted-foreground: #ffffff;
+  --secondary: #1a1a1a;
+  --secondary-foreground: #ffffff;
+  --border: #ffffff;
+  --input: #ffffff;
+  --color-azul: #4da3ff;
+}
+
+/* El azul no se lee sobre los bloques de azul marino: pasa a amarillo */
+html[data-contrast="high"] .bg-brand .text-azul {
+  color: #ffd400;
+}
+
+/* Textos con transparencia: opacos */
+html[data-contrast="high"] [class*="text-white/"] {
+  color: #ffffff;
+}
+
+/* Foco muy visible */
+html[data-contrast="high"] :focus-visible {
+  outline: 3px solid var(--foreground);
+  outline-offset: 2px;
+}

@@ -92,6 +92,13 @@ export default function CookiesPage() {
                 nada.
               </td>
             </tr>
+                        <tr>
+              <td>gp-accessibility</td>
+              <td>Recordar tus ajustes de accesibilidad (tamaño del texto, contraste, fuente…).</td>
+              <td>Propia</td>
+              <td>Hasta que la borres o restablezcas los ajustes</td>
+              <td>No: es una personalización que eliges tú.</td>
+            </tr>
           </tbody>
         </table>
       </div>

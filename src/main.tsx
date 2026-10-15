@@ -9,6 +9,8 @@ import "@fontsource/merriweather/700.css"
 import "./index.css"
 import App from "./App"
 import ConsentProvider from "@/components/consents/consentProvider"
+import "@fontsource/atkinson-hyperlegible/400.css"
+import "@fontsource/atkinson-hyperlegible/700.css"
 
 const queryClient = new QueryClient()
 

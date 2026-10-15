@@ -4,6 +4,7 @@ import Footer from "./footer"
 import ScrollToTop from "./scrollToTop"
 import CookieBanner from "@/components/consents/cookieBanner"
 import NewsletterPopup from "@/components/newsletter/NewsletterPopup"
+import AccessibilityWidget from "@/components/accessibility/AccessibilityWidget"
 
 export default function Layout() {
   return (
@@ -14,6 +15,7 @@ export default function Layout() {
       <Footer />
       <CookieBanner />
       <NewsletterPopup />
+      <AccessibilityWidget />
     </div>
   )
 }

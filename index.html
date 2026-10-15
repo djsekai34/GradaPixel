@@ -23,6 +23,24 @@
         }
       } catch (e) {}
     </script>
+        <script>
+      try {
+        var raw = localStorage.getItem("gp-accessibility")
+        if (raw) {
+          var s = JSON.parse(raw)
+          var e = document.documentElement
+          var scales = [100, 112.5, 125, 150]
+          if (typeof s.textScale === "number" && s.textScale > 0 && scales[s.textScale]) {
+            e.style.fontSize = scales[s.textScale] + "%"
+          }
+          if (s.contrast === "high") e.setAttribute("data-contrast", "high")
+          if (s.font === "legible") e.setAttribute("data-font", "legible")
+          if (s.spacing === "wide") e.setAttribute("data-spacing", "wide")
+          if (s.links === "underline") e.setAttribute("data-links", "underline")
+          if (s.motion === "reduced") e.setAttribute("data-motion", "reduced")
+        }
+      } catch (err) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
