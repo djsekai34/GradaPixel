@@ -2,6 +2,7 @@ import { useId, useState, type FormEvent } from "react"
 import { useMutation } from "@tanstack/react-query"
 import NewsletterForm from "@/components/newsletter/NewsletterForm"
 import { requestUnsubscribeLink } from "@/lib/newsletter"
+import { fieldClass } from "@/lib/form-styles"
 
 function UnsubscribeRequest() {
   const uid = useId()
@@ -35,8 +36,7 @@ function UnsubscribeRequest() {
           autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-azul"
-        />
+          className={fieldClass}        />
       </div>
 
       {mutation.isError && (

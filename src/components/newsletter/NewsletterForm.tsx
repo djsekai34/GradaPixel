@@ -3,6 +3,7 @@ import { Link } from "react-router-dom"
 import { useMutation } from "@tanstack/react-query"
 import { subscribe } from "@/lib/newsletter"
 import { site } from "@/lib/site"
+import { fieldClass } from "@/lib/form-styles"
 
 interface Props {
   onSubscribed?: () => void
@@ -50,8 +51,7 @@ export default function NewsletterForm({ onSubscribed, onNavigate }: Props) {
           autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-azul"
-        />
+          className={fieldClass}        />
       </div>
 
       <div className="absolute -left-[9999px] h-0 w-0 overflow-hidden" aria-hidden="true">

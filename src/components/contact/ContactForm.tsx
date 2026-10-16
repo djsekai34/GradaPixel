@@ -11,14 +11,12 @@ import {
   type ContactValues,
 } from "@/lib/contact"
 import { site } from "@/lib/site"
+import { fieldClass, fieldInvalidClass } from "@/lib/form-styles"
 
 const MESSAGE_MAX = 2000
 const COOLDOWN_MS = 30_000
 
-const baseInput =
-  "w-full border bg-background px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-azul"
-const inputClass = (invalid: boolean) =>
-  `${baseInput} ${invalid ? "border-destructive" : "border-border"}`
+const inputClass = (invalid: boolean) => (invalid ? fieldInvalidClass : fieldClass)
 
 function Field({
   id,

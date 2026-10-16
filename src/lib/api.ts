@@ -5,6 +5,7 @@ import { sanitizeRich } from "@/lib/richtext"
 import { safeExternalUrl, safeUrl, YOUTUBE_ID } from "@/lib/url"
 import type { Article, ArticleSummary, ContentBlock } from "@/types/article"
 
+
 function db() {
   if (!supabase) throw new Error("Supabase no está configurado (revisa .env.local)")
   return supabase
@@ -135,7 +136,7 @@ function parseBlock(raw: unknown): ContentBlock | null {
       return typeof b.text === "string"
         ? { type: "quote", text: b.text, author: optionalString(b.author) }
         : null
-    case "image": {
+        case "image": {
       const src = safeUrl(b.src)
       if (!src || typeof b.alt !== "string") return null
       const creditUrl = safeExternalUrl(b.creditUrl)
@@ -295,6 +296,7 @@ export interface ArticleInput {
   status: "draft" | "published"
   // undefined = no tocar la fecha · null = que el servidor ponga la hora actual (o quite la programación) · texto = fecha concreta
   publishedAt?: string | null
+    newsletterAuto?: boolean // si el aviso por correo debe salir solo al publicarse (undefined = no tocar)
   featured: boolean
   image: string | null
   imageAlt: string
@@ -327,6 +329,7 @@ export async function saveArticle(
     author: input.author,
     status: input.status,
     ...(input.publishedAt !== undefined ? { published_at: input.publishedAt } : {}),
+        ...(input.newsletterAuto !== undefined ? { newsletter_auto: input.newsletterAuto } : {}),
     featured: input.featured,
     image_url: input.image,
     image_alt: input.imageAlt,

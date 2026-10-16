@@ -153,7 +153,7 @@ export default function BlockEditor({
               className={inputClass}
             />
           </Field>
-          <CreditFields
+                   <CreditFields
             textLabel="Crédito de la foto: nombre o usuario (opcional)"
             value={{
               text: block.credit ?? "",

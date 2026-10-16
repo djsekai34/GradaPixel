@@ -1,5 +1,5 @@
 import type { ContentBlock } from "@/types/article"
-import Credit from "./credits"
+import Credit from "./Credit"
 import RichText from "./RichText"
 import VideoEmbed from "./videoEmbed"
 

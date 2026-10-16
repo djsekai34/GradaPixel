@@ -182,6 +182,11 @@ function EditorForm({ article, categories }: { article: Article | null; categori
   })
   const alreadySent = Boolean(newsletterInfo.data?.sentAt)
 
+  // Aviso automático al llegar la hora de un artículo programado:
+  // si no se ha tocado la casilla, vale lo que ya estaba guardado (o «sí» en un artículo nuevo)
+  const [autoNotifyChoice, setAutoNotifyChoice] = useState<boolean | null>(null)
+  const autoNotify = autoNotifyChoice ?? newsletterInfo.data?.auto ?? true
+
   const scheduling = form.status === "published" && !isLive && form.publishMode === "schedule"
 
   // La URL de un artículo ya online no se puede cambiar (los votos dependen de ella).
@@ -271,16 +276,22 @@ function EditorForm({ article, categories }: { article: Article | null; categori
     return article?.publishedAt && !scheduledSaved ? undefined : null
   }
 
+  // Si el aviso por correo debe salir solo al publicarse (undefined = no tocar)
+  function computeNewsletterAuto(): boolean | undefined {
+    if (isLive) return undefined
+    return scheduling ? autoNotify : false
+  }
+
   const save = useMutation({
     mutationFn: async (input: ArticleInput) => {
       const saved = await saveArticle(input, article?.id)
 
       let result: string | null = null
       if (scheduling && input.publishedAt) {
-        // Un artículo programado no avisa a nadie todavía: el aviso se envía cuando ya esté online
-        result = `Guardado. Se publicará el ${format(new Date(input.publishedAt), "d 'de' MMMM 'a las' HH:mm", {
-          locale: es,
-        })}. El aviso por correo se podrá enviar desde el recuadro «Newsletter» cuando salga.`
+        const when = format(new Date(input.publishedAt), "d 'de' MMMM 'a las' HH:mm", { locale: es })
+        result = autoNotify
+          ? `Guardado. Se publicará el ${when}, y el aviso por correo saldrá solo, hasta 5 minutos después.`
+          : `Guardado. Se publicará el ${when}. El aviso por correo no saldrá solo: podrás enviarlo desde el recuadro «Newsletter» cuando esté online.`
       } else if (input.status === "published" && notifyOnPublish && !alreadySent) {
         // Al publicar por primera vez, se avisa a los suscriptores.
         // El servidor garantiza que cada artículo se avisa una sola vez.
@@ -331,6 +342,7 @@ function EditorForm({ article, categories }: { article: Article | null; categori
       author: form.author.trim() || "Redacción",
       status: form.status,
       publishedAt: computePublishedAt(),
+      newsletterAuto: computeNewsletterAuto(),
       featured: form.featured,
       image: form.image.trim() || null,
       imageAlt: form.imageAlt.trim(),
@@ -606,7 +618,7 @@ function EditorForm({ article, categories }: { article: Article | null; categori
       </fieldset>
 
       <FeatureCoverEditor
-         coverImage={form.image}
+        coverImage={form.image}
         isFeatured={form.featured}
         articleImages={imageChoices}
         value={{
@@ -728,6 +740,21 @@ function EditorForm({ article, categories }: { article: Article | null; categori
             </>
           )}
 
+          {scheduling && !alreadySent && (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={autoNotify}
+                onChange={(e) => {
+                  setAutoNotifyChoice(e.target.checked)
+                  setDirty(true)
+                }}
+                className="size-4 accent-azul"
+              />
+              Avisar a los suscriptores por correo cuando se publique
+            </label>
+          )}
+
           {form.status === "published" && !alreadySent && !scheduling && (
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -766,7 +793,10 @@ function EditorForm({ article, categories }: { article: Article | null; categori
 
         {scheduling && (
           <p className="mt-2 text-xs text-muted-foreground">
-            Hora de tu ordenador. El aviso por correo no sale hasta que el artículo esté online.
+            Hora de tu ordenador.{" "}
+            {autoNotify
+              ? "El aviso por correo saldrá solo, hasta 5 minutos después de la hora elegida."
+              : "El aviso por correo no saldrá solo."}
           </p>
         )}
       </div>

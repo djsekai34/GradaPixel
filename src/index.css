@@ -233,3 +233,31 @@ html[data-contrast="high"] :focus-visible {
   outline: 3px solid var(--foreground);
   outline-offset: 2px;
 }
+
+
+/* ===== Campos de texto (contacto, newsletter…): se notan en modo claro y oscuro ===== */
+:root {
+  --field: oklch(0.97 0 0);
+  --field-border: oklch(0.55 0 0);
+}
+
+.dark {
+  --field: oklch(0.22 0 0);
+  --field-border: oklch(0.62 0 0);
+}
+
+@theme inline {
+  --color-field: var(--field);
+  --color-field-border: var(--field-border);
+}
+
+/* Contraste alto (panel de accesibilidad) */
+html[data-contrast="high"] {
+  --field: #ffffff;
+  --field-border: #000000;
+}
+
+html.dark[data-contrast="high"] {
+  --field: #000000;
+  --field-border: #ffffff;
+}

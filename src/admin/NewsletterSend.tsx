@@ -52,8 +52,10 @@ export default function NewsletterSend({ articleId, published, scheduledFor, dir
           ) : scheduledFor ? (
             <p className="text-sm text-muted-foreground">
               Este artículo se publicará el{" "}
-              {format(new Date(scheduledFor), "d 'de' MMMM 'a las' HH:mm", { locale: es })}. El aviso
-              se podrá enviar desde aquí cuando esté online.
+              {format(new Date(scheduledFor), "d 'de' MMMM 'a las' HH:mm", { locale: es })}.{" "}
+              {data.auto
+                ? "El aviso por correo saldrá solo, hasta 5 minutos después de esa hora."
+                : "El aviso no saldrá solo: podrás enviarlo desde aquí cuando esté online."}
             </p>
           ) : !published ? (
             <p className="text-sm text-muted-foreground">

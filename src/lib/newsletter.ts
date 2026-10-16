@@ -47,6 +47,7 @@ export async function requestUnsubscribeLink(email: string): Promise<void> {
 
 export interface NewsletterInfo {
   sentAt: string | null
+  auto: boolean // si el aviso saldrá solo cuando se publique
   active: number
   pending: number
 }
@@ -55,7 +56,11 @@ export async function fetchNewsletterInfo(articleId: string): Promise<Newsletter
   if (!supabase) throw new Error("Supabase no está configurado")
 
   const [article, stats] = await Promise.all([
-    supabase.from("articles").select("newsletter_sent_at").eq("id", articleId).maybeSingle(),
+    supabase
+      .from("articles")
+      .select("newsletter_sent_at,newsletter_auto")
+      .eq("id", articleId)
+      .maybeSingle(),
     supabase.rpc("newsletter_stats"),
   ])
   if (article.error) throw article.error
@@ -63,10 +68,11 @@ export async function fetchNewsletterInfo(articleId: string): Promise<Newsletter
 
   const row: unknown = Array.isArray(stats.data) ? stats.data[0] : null
   const r = (row ?? {}) as { active_count?: unknown; pending_count?: unknown }
-  const sentAt: unknown = (article.data as { newsletter_sent_at?: unknown } | null)?.newsletter_sent_at
+  const a = (article.data ?? {}) as { newsletter_sent_at?: unknown; newsletter_auto?: unknown }
 
   return {
-    sentAt: typeof sentAt === "string" ? sentAt : null,
+    sentAt: typeof a.newsletter_sent_at === "string" ? a.newsletter_sent_at : null,
+    auto: a.newsletter_auto === true,
     active: Number(r.active_count ?? 0),
     pending: Number(r.pending_count ?? 0),
   }
